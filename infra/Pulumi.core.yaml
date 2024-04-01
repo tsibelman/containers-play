@@ -1,0 +1,5 @@
+config:
+  aws:region: us-east-1
+  infra:containerPort: "5432"
+  infra:cpu: "512"
+  infra:memory: "128"
