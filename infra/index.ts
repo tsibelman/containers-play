@@ -27,21 +27,33 @@ const namespace = new aws.servicediscovery.PrivateDnsNamespace(
   },
 );
 
-const securityGroup = new aws.ec2.SecurityGroup("securityGroup", {
+const internalSecurityGroup = new aws.ec2.SecurityGroup("securityGroup", {
   vpcId: vpc.vpcId,
 });
 
 //Allow all inbound traffic from within the same security group
 new aws.vpc.SecurityGroupIngressRule("inner-traffic-in", {
-  securityGroupId: securityGroup.id,
+  securityGroupId: internalSecurityGroup.id,
   ipProtocol: "-1",
-  referencedSecurityGroupId: securityGroup.id,
+  referencedSecurityGroupId: internalSecurityGroup.id,
 });
 
 //Allow all outbound traffic
 
 new aws.vpc.SecurityGroupEgressRule("all-traffic-out", {
-  securityGroupId: securityGroup.id,
+  securityGroupId: internalSecurityGroup.id,
+  ipProtocol: "-1",
+  cidrIpv4: "0.0.0.0/0",
+});
+
+const externalSecurityGroup = new aws.ec2.SecurityGroup(
+  "external-security-group",
+  {
+    vpcId: vpc.vpcId,
+  },
+);
+new aws.vpc.SecurityGroupIngressRule("all-traffic-in", {
+  securityGroupId: internalSecurityGroup.id,
   ipProtocol: "-1",
   cidrIpv4: "0.0.0.0/0",
 });
@@ -53,7 +65,7 @@ const cluster = new aws.ecs.Cluster("cluster", {});
 const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
   defaultTargetGroupPort: 3000,
   subnetIds: vpc.publicSubnetIds,
-  securityGroups: [securityGroup.id],
+  securityGroups: [internalSecurityGroup.id, externalSecurityGroup.id],
 });
 
 // An ECR repository to store our application's container image
@@ -71,7 +83,7 @@ const service = new awsx.ecs.FargateService("app-service", {
   cluster: cluster.arn,
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
-    securityGroups: [securityGroup.id],
+    securityGroups: [internalSecurityGroup.id],
   },
   taskDefinitionArgs: {
     container: {
@@ -110,13 +122,13 @@ new aws.vpc.SecurityGroupIngressRule("nfs-ingress", {
   ipProtocol: "tcp",
   fromPort: 2049,
   toPort: 2049,
-  referencedSecurityGroupId: securityGroup.id,
+  referencedSecurityGroupId: internalSecurityGroup.id,
 });
 
 new aws.vpc.SecurityGroupEgressRule("all-egress", {
   securityGroupId: mountTargetSecurityGroup.id,
   ipProtocol: "-1",
-  referencedSecurityGroupId: securityGroup.id,
+  referencedSecurityGroupId: internalSecurityGroup.id,
 });
 
 const accessPoint = new aws.efs.AccessPoint("efs-access-point", {
@@ -139,7 +151,7 @@ new awsx.ecs.FargateService(`postgres-service`, {
   cluster: cluster.arn,
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
-    securityGroups: [securityGroup.id],
+    securityGroups: [internalSecurityGroup.id],
   },
   serviceConnectConfiguration: {
     enabled: true,
