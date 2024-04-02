@@ -27,20 +27,21 @@ const namespace = new aws.servicediscovery.PrivateDnsNamespace(
   },
 );
 
-const pgSecurityGroup = new aws.ec2.SecurityGroup("securityGroup", {
+const securityGroup = new aws.ec2.SecurityGroup("securityGroup", {
   vpcId: vpc.vpcId,
 });
 
-new aws.vpc.SecurityGroupIngressRule("pg-traffic-in", {
-  securityGroupId: pgSecurityGroup.id,
-  ipProtocol: "tcp",
-  fromPort: 5432,
-  toPort: 5432,
-  referencedSecurityGroupId: pgSecurityGroup.id,
+//Allow all inbound traffic from within the same security group
+new aws.vpc.SecurityGroupIngressRule("inner-traffic-in", {
+  securityGroupId: securityGroup.id,
+  ipProtocol: "-1",
+  referencedSecurityGroupId: securityGroup.id,
 });
 
+//Allow all outbound traffic
+
 new aws.vpc.SecurityGroupEgressRule("all-traffic-out", {
-  securityGroupId: pgSecurityGroup.id,
+  securityGroupId: securityGroup.id,
   ipProtocol: "-1",
   cidrIpv4: "0.0.0.0/0",
 });
@@ -49,8 +50,10 @@ new aws.vpc.SecurityGroupEgressRule("all-traffic-out", {
 const cluster = new aws.ecs.Cluster("cluster", {});
 
 // An ALB to serve the container endpoint to the internet
-const loadbalancer = new awsx.lb.ApplicationLoadBalancer("loadbalancer", {
+const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
   defaultTargetGroupPort: 3000,
+  subnetIds: vpc.publicSubnetIds,
+  securityGroups: [securityGroup.id],
 });
 
 // An ECR repository to store our application's container image
@@ -68,7 +71,7 @@ const service = new awsx.ecs.FargateService("app-service", {
   cluster: cluster.arn,
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
-    securityGroups: [pgSecurityGroup.id],
+    securityGroups: [securityGroup.id],
   },
   taskDefinitionArgs: {
     container: {
@@ -88,7 +91,7 @@ const service = new awsx.ecs.FargateService("app-service", {
       environment: [
         {
           name: "DATABASE_URL",
-          value: "postgresql://postgres:postgres@10.0.34.194:5432/postgres",
+          value: "postgresql://postgres:postgres@10.0.163.151:5432/postgres",
         },
         { name: "SESSION_SECRET", value: "super-duper-s3cret" },
       ],
@@ -107,13 +110,13 @@ new aws.vpc.SecurityGroupIngressRule("nfs-ingress", {
   ipProtocol: "tcp",
   fromPort: 2049,
   toPort: 2049,
-  referencedSecurityGroupId: pgSecurityGroup.id,
+  referencedSecurityGroupId: securityGroup.id,
 });
 
 new aws.vpc.SecurityGroupEgressRule("all-egress", {
   securityGroupId: mountTargetSecurityGroup.id,
   ipProtocol: "-1",
-  referencedSecurityGroupId: pgSecurityGroup.id,
+  referencedSecurityGroupId: securityGroup.id,
 });
 
 const accessPoint = new aws.efs.AccessPoint("efs-access-point", {
@@ -136,7 +139,7 @@ new awsx.ecs.FargateService(`postgres-service`, {
   cluster: cluster.arn,
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
-    securityGroups: [pgSecurityGroup.id],
+    securityGroups: [securityGroup.id],
   },
   serviceConnectConfiguration: {
     enabled: true,
