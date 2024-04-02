@@ -63,7 +63,6 @@ const cluster = new aws.ecs.Cluster("cluster", {});
 
 // An ALB to serve the container endpoint to the internet
 const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
-  defaultTargetGroupPort: 3000,
   subnetIds: vpc.publicSubnetIds,
   securityGroups: [internalSecurityGroup.id, externalSecurityGroup.id],
 });
@@ -85,6 +84,22 @@ const service = new awsx.ecs.FargateService("app-service", {
     subnets: vpc.privateSubnetIds,
     securityGroups: [internalSecurityGroup.id],
   },
+  serviceConnectConfiguration: {
+    enabled: true,
+    namespace: namespace.arn,
+    services: [
+      {
+        discoveryName: "frontend",
+        portName: "front",
+        clientAlias: [
+          {
+            dnsName: "frontend",
+            port: 80,
+          },
+        ],
+      },
+    ],
+  },
   taskDefinitionArgs: {
     container: {
       name: "app",
@@ -95,15 +110,16 @@ const service = new awsx.ecs.FargateService("app-service", {
       portMappings: [
         {
           name: "front",
-          containerPort: 3000,
-          hostPort: 3000,
+          containerPort: 80,
+          hostPort: 80,
           targetGroup: loadbalancer.defaultTargetGroup,
         },
       ],
       environment: [
+        { name: "PORT", value: "80" },
         {
           name: "DATABASE_URL",
-          value: "postgresql://postgres:postgres@10.0.163.151:5432/postgres",
+          value: "postgresql://postgres:postgres@main-db:5432/postgres",
         },
         { name: "SESSION_SECRET", value: "super-duper-s3cret" },
       ],
@@ -162,12 +178,14 @@ new awsx.ecs.FargateService(`postgres-service`, {
         portName: "pg",
         clientAlias: [
           {
+            dnsName: "main-db",
             port: 5432,
           },
         ],
       },
     ],
   },
+
   taskDefinitionArgs: {
     //taskRole:
     container: {
