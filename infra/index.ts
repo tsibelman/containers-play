@@ -65,6 +65,9 @@ const cluster = new aws.ecs.Cluster("cluster", {});
 const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
   subnetIds: vpc.publicSubnetIds,
   securityGroups: [internalSecurityGroup.id, externalSecurityGroup.id],
+  defaultTargetGroup: {
+    deregistrationDelay: 5,
+  },
 });
 
 // An ECR repository to store our application's container image
