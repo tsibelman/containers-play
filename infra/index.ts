@@ -10,7 +10,7 @@ const vpc = new awsx.ec2.Vpc(`vpc`, {
   cidrBlock: "10.0.0.0/16",
   enableDnsHostnames: true,
   numberOfAvailabilityZones: 2,
-  natGateways: { strategy: "OnePerAz" },
+  natGateways: { strategy: "Single" },
   subnetStrategy: "Auto",
   subnetSpecs: [
     { type: awsx.ec2.SubnetType.Public },

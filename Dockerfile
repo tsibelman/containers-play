@@ -22,7 +22,7 @@ WORKDIR /myapp
 
 COPY --from=deps /myapp/node_modules /myapp/node_modules
 ADD package.json .npmrc ./
-RUN npm prune --omit=dev
+RUN npm prune --production
 
 # Build the app
 FROM base as build
