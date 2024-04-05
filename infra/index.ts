@@ -2,9 +2,9 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 
-const config = new pulumi.Config();
-const cpu = config.getNumber("cpu") || 512;
-const memory = config.getNumber("memory") || 128;
+//const config = new pulumi.Config();
+const cpu = 512;
+const memory = 128;
 
 const vpc = new awsx.ec2.Vpc(`vpc`, {
   cidrBlock: "10.0.0.0/16",
@@ -71,13 +71,16 @@ const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
 });
 
 // An ECR repository to store our application's container image
-const repo = new awsx.ecr.Repository("repo", { forceDelete: true });
+const repo = new awsx.ecr.Repository("repo", {
+  forceDelete: true,
+  imageTagMutability: "IMMUTABLE",
+});
 
 // Build and publish our application's container image to the ECR repository
 const image = new awsx.ecr.Image("image", {
   repositoryUrl: repo.url,
   context: "../",
-  platform: "linux/amd64",
+  platform: "linux/arm64",
 });
 
 // Deploy an ECS Service on Fargate to host the application container

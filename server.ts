@@ -161,3 +161,10 @@ async function run() {
     };
   }
 }
+
+process.on("SIGTERM", function () {
+  console.log("terminate process!");
+  process.exit();
+});
+
+console.log("Registered SIGTERM");
