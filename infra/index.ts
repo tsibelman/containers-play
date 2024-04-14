@@ -67,6 +67,12 @@ const loadbalancer = new awsx.lb.ApplicationLoadBalancer("alb", {
   securityGroups: [internalSecurityGroup.id, externalSecurityGroup.id],
   defaultTargetGroup: {
     deregistrationDelay: 5,
+    healthCheck: {
+      path: "/",
+      timeout: 5,
+      healthyThreshold: 2,
+      unhealthyThreshold: 2,
+    },
   },
 });
 
@@ -80,12 +86,16 @@ const repo = new awsx.ecr.Repository("repo", {
 const image = new awsx.ecr.Image("image", {
   repositoryUrl: repo.url,
   context: "../",
-  platform: "linux/arm64",
+  platform: "linux/amd64",
 });
 
 // Deploy an ECS Service on Fargate to host the application container
-const service = new awsx.ecs.FargateService("app-service", {
+new awsx.ecs.FargateService("app-service", {
   cluster: cluster.arn,
+  deploymentCircuitBreaker: {
+    enable: true,
+    rollback: false,
+  },
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
     securityGroups: [internalSecurityGroup.id],
