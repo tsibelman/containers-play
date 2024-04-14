@@ -181,6 +181,10 @@ new aws.efs.MountTarget(`efs-mount-target-2`, {
 
 new awsx.ecs.FargateService(`postgres-service`, {
   cluster: cluster.arn,
+  deploymentCircuitBreaker: {
+    enable: true,
+    rollback: true,
+  },
   networkConfiguration: {
     subnets: vpc.privateSubnetIds,
     securityGroups: [internalSecurityGroup.id],
